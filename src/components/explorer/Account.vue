@@ -5,7 +5,7 @@
       <div class="profile" :style="this.account.cover_image==''?'background-color: black;':'background-image: url('+this.account.cover_image+');'">
         <div>
           <div class="image" :style="'background-image: url('+this.account.profile_image+');'"></div>
-          <div class="name"><h1><strong>@{{this.account.name}}</strong> ({{account.rep_log}})</h1></div>
+          <div class="name"><h1><strong>@{{this.account.name}}</strong></h1></div>
         </div>
       </div>
       <div class="container">
@@ -54,9 +54,13 @@
             <trx :tx="tx"></trx>
           </div>
         </div>
-        <div v-else>
+
+       <div v-else-if="!exists.transactions">
+          <p>No transaction found</p>
+        </div>
+            <!-- <div v-else>
           <div class="loader"></div>
-        </div>        
+        </div>         -->
         <div class="center">
           <div v-for="(p,key,index) in pages" class="page"
             ><span v-if="p.link"
@@ -81,35 +85,33 @@
 </template>
 
 <script>
-import { Client } from 'eftg-dsteem'
-import SteemClient from '@/mixins/SteemClient.js'
+import { Client } from "eftg-dsteem";
+import SteemClient from "@/mixins/SteemClient.js";
+import Utils from "@/js/utils.js";
+import Config from "@/config.js";
+import CardData from "@/components/explorer/CardData";
+import Trx from "@/components/explorer/Trx";
+import ChainProperties from "@/mixins/ChainProperties.js";
+import HeaderEFTG from "@/components/HeaderEFTG";
 
-import Utils from '@/js/utils.js'
-import Config from '@/config.js'
-import CardData from '@/components/explorer/CardData'
-import Trx from '@/components/explorer/Trx'
-import ChainProperties from '@/mixins/ChainProperties.js'
-import HeaderEFTG from '@/components/HeaderEFTG'
+import * as sereyjs from '@sereynetwork/sereyjs';
+sereyjs.api.setOptions({ url: 'wss://api.serey.io' }); // assuming websocket is working at ws.golos.io
+sereyjs.config.set('address_prefix','SRY');
 
 export default {
-  name: 'Account',
+  name: "Account",
   data () {
     return {
       account: {
       },
       witness: {
       },
-      accountGenerals: {      
-      },
-      accountGenerals2: {      
-      },
-      witnessGenerals: {
-      },
-      authorities:{
-      },
-      transactions: {
-      },
-      limit: 250,
+      accountGenerals: {},
+      accountGenerals2: {},
+      witnessGenerals: {},
+      authorities: {},
+      transactions: {},
+      limit: 500,
       pages: [],
       exists: {
         account: false,
@@ -119,16 +121,14 @@ export default {
         voting_manabar: false,
         transactions: false,
       },
-      EXPLORER: Config.EXPLORER      
+      EXPLORER: Config.EXPLORER
     }
   },
-  
   components: {
     HeaderEFTG,
     CardData,
-    Trx    
+    Trx,
   },
-  
   mixins: [
     ChainProperties,
     SteemClient
@@ -139,48 +139,56 @@ export default {
       this.fetchData()
     })
   },
-
   watch: {
     '$route': 'fetchData'    
   },
-
   methods: {
-    
     async fetchData() {
       var name = this.$route.params.account;
             
-      console.log('Fetching data for '+name);
+      console.log("Fetching data for " + name);
       this.exists.account = false;
       this.exists.transactions = false;
       this.exists.witness = false;
       var self = this;
       //var result = await this.client.database.getAccounts([name])
       var result = await this.steem_database_call('get_accounts',[[name]])
-      
+
       this.exists.account = true;
-        
+
       if(result[0].json_metadata.length > 0) this.exists.json_metadata = true;
       else this.exists.json_metadata = false;
-        
+
       if(result[0].voting_manabar) this.exists.voting_manabar = true;
       else this.exists.voting_manabar = false;
-        
+      
       try{
         result[0].json_metadata = JSON.parse(result[0].json_metadata)
       }catch(exception){ }
-        
+
       result[0].rep_log = Utils.getReputation(result[0].reputation);
       result[0].profile_image = Utils.extractUrlProfileImage(result[0].json_metadata);
       result[0].cover_image = Utils.extractUrlCoverImage(result[0].json_metadata);
       for(var i=0;i<result[0].witness_votes.length;i++){
         result[0].witness_votes[i] = {link:'@'+result[0].witness_votes[i] , text:result[0].witness_votes[i]};
       }
-        
+
       this.account = result[0];
-        
-      var no_keys = ['owner','active','posting','memo_key','json_metadata','voting_manabar','proxied_vsf_votes','transfer_history','market_history','post_history','vote_history','other_history','witness_votes','tags_usage','guest_bloggers','rep_log','profile_image','cover_image',
-      'balance','sbd_balance','savings_balance'];
-        
+      var no_keys = ['owner','active','posting','memo_key','json_metadata','voting_manabar',
+        'proxied_vsf_votes','transfer_history',
+        'market_history',
+        'post_history',
+        'vote_history',
+        'other_history',
+        'witness_votes',
+        'tags_usage',
+        'guest_bloggers',
+        'profile_image',
+        'cover_image',
+        'balance',
+        'sbd_balance',
+        'savings_balance',
+      ];
       var acc = {};
       for(var key in self.account){
         if(no_keys.indexOf(key) >= 0) continue;
@@ -203,80 +211,77 @@ export default {
       }
       
       //var result = await this.client.database.call('get_account_history',[name,-1,1])
-      var result = await this.steem_database_call('get_account_history',[name,-1,1])
-        
+      // var result = await this.steem_database_call("get_account_history", [
+      //   name,
+      //   -1, // -1
+      //   1,
+      // ]);
+
+      var result = await sereyjs.api.getAccountHistoryAsync(name, -1, 1);
       var last_tx = result[0][0];
-      var from = -1;
+      var from = -1; // -1
       var limit = self.limit;
       var total_pages = Math.ceil(last_tx / limit);
       var page = 1;
-        
-      if(this.$route.query && this.$route.query.page){
+      if (this.$route.query && this.$route.query.page) {
         page = parseInt(this.$route.query.page);
-        from = last_tx - limit*( page - 1 );          
-      }else{
-        from = last_tx;          
+        from = last_tx - limit*(page - 1);
+      } else{
+         from = last_tx + 1;
       }
       if(from < 0) from = 0;
       if(from < limit) limit = from;
-        
       this.pages = [];
       var NUMBER_PAGES_DISPLAYED = 10;
-      var ini = page-NUMBER_PAGES_DISPLAYED/2;
-      var end = page+NUMBER_PAGES_DISPLAYED/2-1;
-      if(ini < 1){
-        end += 1-ini;
-        ini = 1;          
+      var ini = page - NUMBER_PAGES_DISPLAYED / 2;
+      var end = page + NUMBER_PAGES_DISPLAYED / 2 - 1;
+      if (ini < 1) {
+        end += 1 - ini;
+        ini = 1;
       }
-        
-      if(end > total_pages){
-        ini -= end-total_pages;
-        if(ini < 1) ini = 1;
+      if (end > total_pages) {
+        ini -= end - total_pages;
+        if (ini < 1) ini = 1;
         end = total_pages;
-      }       
-        
-      if(ini > 1){
-        this.pages.push({text:'1',link:'@'+name+'?page=1'});
-        this.pages.push({text:'...'});
       }
-        
-      for(var i=ini ; i<=end ; i++){
-        this.pages.push({text:i+'',link:'@'+name+'?page='+i});
+      if (ini > 1) {
+        this.pages.push({ text: "1", link: "@" + name + "?page=1" });
+        this.pages.push({ text: "..." });
       }
-        
-      if(end < total_pages){
-        this.pages.push({text:'...'});
-        this.pages.push({text:total_pages+'',link:'@'+name+'?page='+total_pages});          
+      for (var i = ini; i <= end; i++) {
+        this.pages.push({ text: i + "", link: "@" + name + "?page=" + i });
+      }
+      if (end < total_pages) {
+        this.pages.push({text:"..." });
+        this.pages.push({text:total_pages+'',link:"@"+ name + "?page="+total_pages,});
       }
     
-      //var result = await this.client.database.call('get_account_history',[name,from,limit])
-      var result = await this.steem_database_call('get_account_history',[name,from,limit])
+      var result = await sereyjs.api.getAccountHistoryAsync(name, from, limit);
       this.transactions = result.reverse();
       this.exists.transactions = true;
-      
-      //var result = await this.client.database.call('get_witness_by_account',[name])
-      var result = await this.steem_database_call('get_witness_by_account',[name])
-      if(result == null) return; 
-      
-      this.witness = result;
-        
-      var no_keys = ['signing_key','props','sbd_exchange_rate'];
-        
+
+      var witnessByAccount = await this.steem_database_call('get_witness_by_account',[name])
+      if(witnessByAccount == null) return; 
+
+      this.witness = witnessByAccount;
+
+      var no_keys2 = ['signing_key','props','sbd_exchange_rate'];
+
       var wit = {};
-      for(var key in this.witness){
-        if(no_keys.indexOf(key) >= 0) continue;
-        wit[key] = this.witness[key];
+      for(var key2 in this.witness){
+        if(no_keys2.indexOf(key2) >= 0) continue;
+        wit[key2] = this.witness[key2];
       }
-        
+
       this.witnessGenerals = wit;
       this.authorities.signing  = [this.witness.signing_key];
-      this.exists.witness = true;      
+      this.exists.witness = true;
     },
     
     arrayAuthorities: function(auth){
       var array = [];
-      for(var i=0;i<auth.key_auths.length;i++) array.push( auth.key_auths[i][0] );
-      for(var i=0;i<auth.account_auths.length;i++) array.push( {link:'@'+auth.account_auths[i][0] , text:auth.account_auths[i][0]} );
+      for(var i=0;i<auth.key_auths.length;i++) array.push(auth.key_auths[i][0]);
+      for(var j=0;j<auth.account_auths.length;j++) array.push( {link:"@"+auth.account_auths[j][0], text: auth.account_auths[j][0],});
       return array;
     }
   }
