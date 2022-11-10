@@ -96,8 +96,8 @@ opts.addressPrefix = 'SRY';
 opts.timeout = Config.DSTEEM_TIMEOUT
 opts.chainId = '5205c25d3e87cb3e8e527e6fbbf324b7b2b9fe7a7192c604ce5b174d08987324';
 // if(Config.STEEM_CHAIN_ID) opts.chainId = Config.STEEM_CHAIN_ID
-import { Client as Client2 } from 'dsteem'
-const sereyClient = new Client2('https://api.serey.io', opts);
+// import { Client as Client2 } from 'dsteem'
+// const sereyClient = new Client2('https://api.serey.io', opts);
 
   // return new Client(address, opts)
 

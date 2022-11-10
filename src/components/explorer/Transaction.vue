@@ -95,6 +95,7 @@ export default {
           block_num: blocknum
         };          
       }
+      console.log(this.tx)
       this.exists = true;      
     },
   }

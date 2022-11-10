@@ -15,7 +15,7 @@
         </div
         ><div class="col-md-9">
           <h2>{{block.transactions.length}} Transactions</h2>
-          <div v-for="(tx,key,index) in block.transactions">
+          <div v-for="(tx,key, index) in block.transactions">
             <trx :tx="tx"></trx>
           </div>
         </div>
@@ -32,16 +32,13 @@
 </template>
 
 <script>
-import { Client } from 'eftg-dsteem'
+// import { Client } from 'eftg-dsteem'
 import SteemClient from '@/mixins/SteemClient.js'
-import Config from '@/config.js'
-
+// import Config from '@/config.js'
 import CardData from '@/components/explorer/CardData'
 import Trx from '@/components/explorer/Trx'
-
 import HeaderEFTG from '@/components/HeaderEFTG'
 import ChainProperties from '@/mixins/ChainProperties.js'
-
 export default {
   name: 'Block',
   data () {
@@ -70,11 +67,9 @@ export default {
       this.fetchData()
     })
   },
-
   watch: {
     '$route': 'fetchData'
   },
-
   methods: {
     
     async fetchData() {
@@ -114,5 +109,4 @@ export default {
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
-
 </style>
